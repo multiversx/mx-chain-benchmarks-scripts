@@ -6,3 +6,5 @@
 *.info
 *.plan
 *.txt
+.terraform/
+.terraform.lock.hcl
