@@ -1,4 +1,5 @@
-- hosts: validators
+# Play 1: Common setup for all nodes
+- hosts: validators:observers
   become: yes
   tasks:
     - name: Update apt cache
@@ -17,7 +18,7 @@
         version: main
       become_user: "{{ ansible_user }}"
 
-    - name: Replace ENVIRONMENT="" with ENVIRONMENT="benchmarks" in variables.sh
+    - name: Replace ENVIRONMENT="" with ENVIRONMENT="benchmarks" in variables.cfg
       replace:
         path: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts/config/variables.cfg
         regexp: 'ENVIRONMENT=""'
@@ -38,7 +39,11 @@
         replace: 'OVERRIDE_CONFIGVER="main"'
       become_user: "{{ ansible_user }}"
 
-    - name: Run ./script.sh install
+# Play 2: Install and configure validators
+- hosts: validators
+  become: yes
+  tasks:
+    - name: Run ./script.sh install for validators
       shell: |
         cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
         ./script.sh install
@@ -46,6 +51,7 @@
         chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
       become_user: "{{ ansible_user }}"
 
+# Play 3: Download and split validator keys on control machine (localhost)
 - hosts: localhost
   gather_facts: no
   tasks:
@@ -70,6 +76,7 @@
       args:
         chdir: "./"
 
+# Play 4: Copy validator keys to validator hosts
 - hosts: validators
   become: yes
   tasks:
@@ -79,7 +86,7 @@
         dest: "/home/ubuntu/elrond-nodes/node-0/config/validatorKey.pem"
         owner: ubuntu
         group: ubuntu
-        mode: '0665'
+        mode: '0600'
 
     - name: Verify that the validator key exists
       stat:
@@ -91,10 +98,42 @@
         msg: "Validator key not found at /home/ubuntu/elrond-nodes/node-0/config/validatorKey.pem"
       when: not key_check.stat.exists
 
+# Play 6: Install and configure observers
+- hosts: observers
+  become: yes
+  tasks:
+    - name: Run ./script.sh install for observers
+      shell: |
+        cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+        ./script.sh install
+      args:
+        chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+      become_user: "{{ ansible_user }}"
+
+    - name: Replace DestinationShardAsObserver in prefs.toml
+      replace:
+        path: /home/{{ ansible_user }}/elrond-nodes/node-0/config/prefs.toml
+        regexp: 'DestinationShardAsObserver = "0"'
+        replace: 'DestinationShardAsObserver = "{{ observer_index }}"'
+      become_user: "{{ ansible_user }}"
+
+# Play 7: Start observers
+- hosts: observers
+  become: yes
+  tasks:
+    - name: Run ./script.sh start for observers
+      shell: |
+        cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+        ./script.sh start
+      args:
+        chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+      become_user: "{{ ansible_user }}"
+
+# Play 5: Start validators
 - hosts: validators
   become: yes
   tasks:
-    - name: Run ./script.sh start for each validator
+    - name: Run ./script.sh start for validators
       shell: |
         cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
         ./script.sh start

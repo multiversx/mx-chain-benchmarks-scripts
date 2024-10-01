@@ -18,10 +18,14 @@ variable "machine_type" {
   type        = string
 }
 
-variable "instance_number" {
-  description = "Number of instances to create"
-  type        = number
+variable "validator_count" {
+  default = 1
 }
+
+variable "observer_count" {
+  default = 1
+}
+
 
 variable "vcpu_count" {
   description = "Number of vCPUs per instance"
