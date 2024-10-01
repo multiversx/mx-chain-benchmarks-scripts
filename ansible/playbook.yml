@@ -1,0 +1,33 @@
+- hosts: validators
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install required packages
+      apt:
+        name: git
+        state: present
+
+    - name: Clone the mx-chain-benchmarks-scripts repository
+      git:
+        repo: https://github.com/multiversx/mx-chain-benchmarks-scripts.git
+        dest: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+        version: main
+      become_user: "{{ ansible_user }}"
+
+    - name: Replace ENVIRONMENT="" with ENVIRONMENT="benchmarks" in variables.sh
+      replace:
+        path: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts/config/variables.cfg
+        regexp: 'ENVIRONMENT=""'
+        replace: 'ENVIRONMENT="benchmarks"'
+      become_user: "{{ ansible_user }}"
+
+    - name: Run ./script.sh install
+      shell: |
+        cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+        ./script.sh install
+      args:
+        chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+      become_user: "{{ ansible_user }}"
