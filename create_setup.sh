@@ -74,7 +74,7 @@ done
 echo -e "${GREEN}Ansible inventory created successfully.${RESET}"
 
 echo -e "${CYAN}Step 4: Starting Ansible playbook to configure validators...${RESET}"
-ansible-playbook -i inventory.ini playbook.yml | tee ../ansible.log &
+ansible-playbook -i inventory.ini playbook.yml --ssh-common-args='-o StrictHostKeyChecking=accept-new' | tee ../ansible.log &
 spinner $!
 
 if [ $? -eq 0 ]; then

@@ -8,9 +8,6 @@ source $SCRIPTPATH/config/variables.cfg
 source $SCRIPTPATH/config/functions.cfg
 source $SCRIPTPATH/config/menu_functions.cfg
 
-#Check if there are newer versions of the scripts available
-check_scripts_version
-
 #See if the user has passed any command line arguments and if not show the menu
 if [ $# -eq 0 ]
   then
