@@ -52,7 +52,11 @@ else
     exit 1
 fi
 
-echo -e "${CYAN}Step 2: Retrieving instance IPs from Terraform output...${RESET}"
+
+echo -e "${CYAN}Step 2: Waiting for instances to initialize...${RESET}"
+sleep 120 
+
+echo -e "${CYAN}Step 3: Retrieving instance IPs from Terraform output...${RESET}"
 terraform output -json instance_ips | jq -r '.[]' > ../inventory_ips.txt
 
 if [ $? -eq 0 ]; then
@@ -62,19 +66,19 @@ else
     exit 1
 fi
 
-echo -e "${CYAN}Step 3: Creating Ansible inventory...${RESET}"
+echo -e "${CYAN}Step 4: Creating Ansible inventory...${RESET}"
 cd ../ansible || { echo -e "${RED}Error: Ansible directory not found!${RESET}"; exit 1; }
 echo "[validators]" > inventory.ini
 count=0
 for ip in $(cat ../inventory_ips.txt); do
-    echo "validator-$count ansible_host=$ip ansible_user=ubuntu" >> inventory.ini
+    echo "validator-$count ansible_host=$ip ansible_user=ubuntu" validator-index=$count>> inventory.ini
     count=$((count+1))
 done
 
 echo -e "${GREEN}Ansible inventory created successfully.${RESET}"
 
-echo -e "${CYAN}Step 4: Starting Ansible playbook to configure validators...${RESET}"
-ansible-playbook -i inventory.ini playbook.yml --ssh-common-args='-o StrictHostKeyChecking=accept-new' | tee ../ansible.log &
+echo -e "${CYAN}Step 5: Starting Ansible playbook to configure validators...${RESET}"
+ansible-playbook -i inventory.ini -i constants.ini playbook.yml --ssh-common-args='-o StrictHostKeyChecking=accept-new' | tee ../ansible.log &
 spinner $!
 
 if [ $? -eq 0 ]; then
