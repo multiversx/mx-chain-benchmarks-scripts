@@ -2,3 +2,7 @@
 *.tfstate
 *.tfstate.backup
 *.ini
+*.log
+*.info
+*.plan
+*.txt
