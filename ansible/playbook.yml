@@ -45,3 +45,59 @@
       args:
         chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
       become_user: "{{ ansible_user }}"
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Download validatorKey.pem from GitHub
+      get_url:
+        url: "https://raw.githubusercontent.com/multiversx/mx-chain-benchmarks-config/main/keys/validatorKey.pem"
+        dest: "./validatorKey.pem"
+
+    - name: Ensure validatorKey.pem exists and has correct format
+      stat:
+        path: "./validatorKey.pem"
+      register: key_file_check
+
+    - name: Fail if validatorKey.pem does not exist
+      fail:
+        msg: "validatorKey.pem not found or improperly formatted. Ensure it exists and is in the correct location."
+      when: not key_file_check.stat.exists
+
+    - name: Split validatorKey.pem into individual keys based on custom markers
+      shell: |
+        awk 'BEGIN {n = -1} /-----BEGIN PRIVATE KEY for / {n++; out = sprintf("validatorKey_%02d.pem", n)} {print > out}' validatorKey.pem
+      args:
+        chdir: "./"
+
+- hosts: validators
+  become: yes
+  tasks:
+    - name: Copy the validator key to the validator host
+      copy:
+        src: "./validatorKey_{{ '%02d' | format(validator_index | int) }}.pem"
+        dest: "/home/ubuntu/elrond-nodes/node-0/config/validatorKey.pem"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0665'
+
+    - name: Verify that the validator key exists
+      stat:
+        path: "/home/ubuntu/elrond-nodes/node-0/config/validatorKey.pem"
+      register: key_check
+
+    - name: Fail if the key does not exist
+      fail:
+        msg: "Validator key not found at /home/ubuntu/elrond-nodes/node-0/config/validatorKey.pem"
+      when: not key_check.stat.exists
+
+- hosts: validators
+  become: yes
+  tasks:
+    - name: Run ./script.sh start for each validator
+      shell: |
+        cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+        ./script.sh start
+      args:
+        chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+      become_user: "{{ ansible_user }}"
