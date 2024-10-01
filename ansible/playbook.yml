@@ -24,6 +24,20 @@
         replace: 'ENVIRONMENT="benchmarks"'
       become_user: "{{ ansible_user }}"
 
+    - name: Replace GITHUBTOKEN=""
+      replace:
+        path: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts/config/variables.cfg
+        regexp: 'GITHUBTOKEN=""'
+        replace: 'GITHUBTOKEN="{{ github_token }}"'
+      become_user: "{{ ansible_user }}"
+
+    - name: Replace CONFIGVER to main
+      replace:
+        path: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts/config/variables.cfg
+        regexp: 'OVERRIDE_CONFIGVER=""'
+        replace: 'OVERRIDE_CONFIGVER="main"'
+      become_user: "{{ ansible_user }}"
+
     - name: Run ./script.sh install
       shell: |
         cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
