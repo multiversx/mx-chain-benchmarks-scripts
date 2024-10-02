@@ -105,7 +105,7 @@
     - name: Run ./script.sh install for observers
       shell: |
         cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
-        ./script.sh install
+        ./script.sh observing_squad
       args:
         chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
       become_user: "{{ ansible_user }}"
