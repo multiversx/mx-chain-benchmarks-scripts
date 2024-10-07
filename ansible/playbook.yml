@@ -50,6 +50,14 @@
       args:
         chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
       become_user: "{{ ansible_user }}"
+  
+    - name: Run ./script.sh upgrade_proxy to install gateway
+      shell: |
+        cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+        ./script.sh upgrade_proxy
+      args:
+        chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+      become_user: "{{ ansible_user }}"
 
 # Play 3: Download and split validator keys on control machine (localhost)
 - hosts: localhost

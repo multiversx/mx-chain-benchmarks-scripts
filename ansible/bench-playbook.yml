@@ -1,0 +1,81 @@
+---
+- name: Copy and unzip benchmark on validators
+  hosts: validators
+  become: yes
+  tasks:
+    - name: Ensure unzip is installed
+      apt:
+        name: unzip
+        state: present
+        update_cache: yes
+
+    - name: Ensure destination directory exists
+      file:
+        path: /home/{{ ansible_user }}/benchmark
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Copy the zip file to the validator
+      copy:
+        src: ../benchmark.zip
+        dest: /home/{{ ansible_user }}/benchmark/benchmark.zip
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+
+    - name: Unzip the benchmark zip file
+      unarchive:
+        src: /home/{{ ansible_user }}/benchmark/benchmark.zip
+        dest: /home/{{ ansible_user }}/benchmark/
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        remote_src: yes
+        mode: '0755'
+
+- hosts: validators
+  become: yes
+  tasks:
+    - name: Ensure Python 3 and pip are installed
+      apt:
+        name:
+          - python3
+          - python3-pip
+        state: present
+        update_cache: yes
+
+    - name: Install multiversx_sdk_cli via pip
+      pip:
+        name: multiversx_sdk_cli
+        executable: pip3
+
+    - name: Verify installation of mxpy
+      shell: "mxpy --version"
+      register: mxpy_version
+      ignore_errors: yes
+
+    - name: Display mxpy version
+      debug:
+        msg: "Installed mxpy version: {{ mxpy_version.stdout }}"
+      when: mxpy_version.rc == 0
+
+- name: Copy keygenerator to validators
+  hosts: validators
+  become: yes
+  tasks:
+    - name: Ensure keygenerator directory exists
+      file:
+        path: /home/{{ ansible_user }}/keygenerator
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Copy keygenerator executable to validator
+      copy:
+        src: ../keygenerator 
+        dest: /home/{{ ansible_user }}/keygenerator/keygenerator
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
