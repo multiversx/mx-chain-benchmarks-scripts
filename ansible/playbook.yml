@@ -2,10 +2,6 @@
 - hosts: validators:observers
   become: yes
   tasks:
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-
     - name: Install required packages
       apt:
         name: git
@@ -47,18 +43,12 @@
       shell: |
         cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
         ./script.sh install
+      environment:
+        PATH: /usr/local/bin:/usr/bin:/bin
       args:
         chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
       become_user: "{{ ansible_user }}"
   
-    - name: Run ./script.sh upgrade_proxy to install gateway
-      shell: |
-        cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
-        ./script.sh upgrade_proxy
-      args:
-        chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
-      become_user: "{{ ansible_user }}"
-
 # Play 3: Download and split validator keys on control machine (localhost)
 - hosts: localhost
   gather_facts: no
@@ -106,6 +96,19 @@
         msg: "Validator key not found at /home/ubuntu/elrond-nodes/node-0/config/validatorKey.pem"
       when: not key_check.stat.exists
 
+# Play 5: Start validators
+- hosts: validators
+  become: yes
+  tasks:
+    - name: Run ./script.sh start for validators
+      shell: |
+        cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+        ./script.sh start
+      args:
+        chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
+      become_user: "{{ ansible_user }}"
+
+
 # Play 6: Install and configure observers
 - hosts: observers
   become: yes
@@ -130,18 +133,6 @@
   become: yes
   tasks:
     - name: Run ./script.sh start for observers
-      shell: |
-        cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
-        ./script.sh start
-      args:
-        chdir: /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
-      become_user: "{{ ansible_user }}"
-
-# Play 5: Start validators
-- hosts: validators
-  become: yes
-  tasks:
-    - name: Run ./script.sh start for validators
       shell: |
         cd /home/{{ ansible_user }}/mx-chain-benchmarks-scripts
         ./script.sh start

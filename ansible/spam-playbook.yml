@@ -1,0 +1,58 @@
+# spam-playbook.yml
+- name: Start spam.py on validators (excluding validator-0)
+  hosts: validators
+  become: yes
+  vars:
+    spam_duration: 1  # Set the number of minutes here (0 for infinite duration)
+  tasks:
+    - name: Ensure the benchmark directory exists
+      file:
+        path: /home/{{ ansible_user }}/benchmark
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      when: validator_index > 0
+
+    - name: Calculate async duration based on spam_duration
+      set_fact:
+        async_duration: "{{ spam_duration | int * 60 if spam_duration | int > 0 else 0 }}"
+      when: validator_index > 0
+
+    - name: Calculate indices for spam.py
+      set_fact:
+        indices: "0:{{ number_of_wallets - 1 }}"
+      when: validator_index > 0
+
+    - name: Run spam.py script
+      shell: |
+        cd /home/{{ ansible_user }}/benchmark
+        nohup python3 spam.py --proxy http://localhost:8080 --wallets wallets.pem --indices {{ indices }} > spam.log 2>&1 &
+      args:
+        executable: /bin/bash
+      become_user: "{{ ansible_user }}"
+      async: "{{ async_duration }}"
+      poll: "{{ 1 if async_duration > 0 else 0 }}"
+      register: spam_job
+      ignore_errors: yes
+      when: validator_index > 0
+
+    - name: Log when spam.py is running indefinitely
+      debug:
+        msg: "Spam job started and is running indefinitely."
+      when: spam_duration == 0 and validator_index > 0
+
+    - name: Log when spam.py is running for a limited duration
+      debug:
+        msg: "Spam job started with job ID {{ spam_job.ansible_job_id if spam_job.ansible_job_id is defined else 'N/A' }} and will run for {{ spam_duration }} minutes."
+      when: spam_duration > 0 and validator_index > 0
+
+    - name: Wait for spam.py to complete if running for a limited duration
+      async_status:
+        jid: "{{ spam_job.ansible_job_id }}"
+        mode: status
+      register: spam_status
+      until: spam_status.finished
+      retries: "{{ spam_duration | int }}"
+      delay: 60
+      when: spam_duration > 0 and spam_job.ansible_job_id is defined and validator_index > 0

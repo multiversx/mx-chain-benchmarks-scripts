@@ -79,3 +79,108 @@
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: '0755'
+
+- hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Download walletKey.pem from GitHub
+      get_url:
+        url: "https://raw.githubusercontent.com/multiversx/mx-chain-benchmarks-config/main/keys/walletKey.pem"
+        dest: "./walletKey.pem"
+
+    - name: Ensure walletKey.pem exists and has correct format
+      stat:
+        path: "./walletKey.pem"
+      register: wallet_key_file_check
+
+    - name: Fail if walletKey.pem does not exist
+      fail:
+        msg: "walletKey.pem not found or improperly formatted. Ensure it exists and is in the correct location."
+      when: not wallet_key_file_check.stat.exists
+
+    - name: Split walletKey.pem into individual keys based on custom markers
+      shell: |
+        awk 'BEGIN {n = 0} /-----BEGIN PRIVATE KEY for / {out = sprintf("walletKey_%02d.pem", n); n++} {print > out}' walletKey.pem
+      args:
+        chdir: "./"
+
+- hosts: validators
+  become: yes
+  tasks:
+    - name: Ensure the benchmark directory exists
+      file:
+        path: /home/{{ ansible_user }}/benchmark
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Copy the wallet key to the validator host
+      copy:
+        src: "./walletKey_{{ '%02d' | format(validator_index - 1) }}.pem"
+        dest: "/home/{{ ansible_user }}/benchmark/sponsor.pem"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      when: validator_index > 0
+
+    - name: Verify that the sponsor.pem key exists
+      stat:
+        path: "/home/{{ ansible_user }}/benchmark/sponsor.pem"
+      register: sponsor_key_check
+
+    - name: Fail if the sponsor.pem key does not exist
+      fail:
+        msg: "sponsor.pem key not found at /home/{{ ansible_user }}/benchmark/sponsor.pem"
+      when: not sponsor_key_check.stat.exists
+
+- name: Set the number of wallets variable
+  hosts: validators
+  gather_facts: no
+  tasks:
+    - name: Set number_of_wallets fact
+      set_fact:
+        number_of_wallets: "{{ number_of_wallets }}"
+
+- name: Copy and run generate_wallets.sh on validators
+  hosts: validators
+  become: yes
+  tasks:
+    - name: Ensure the keygenerator directory exists
+      file:
+        path: /home/{{ ansible_user }}/keygenerator
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Copy generate_wallets.sh script to validator
+      copy:
+        src: ../generate_wallets.sh  
+        dest: /home/{{ ansible_user }}/keygenerator/generate_wallets.sh
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Run generate_wallets.sh script
+      shell: |
+        cd /home/{{ ansible_user }}/keygenerator
+        ./generate_wallets.sh $(( {{ validator_index }} - 1 )) {{ number_of_wallets }}
+      args:
+        executable: /bin/bash
+      become_user: "{{ ansible_user }}"
+      when: validator_index > 0
+
+    - name: Wait for the wallets.pem file to be generated
+      wait_for:
+        path: /home/{{ ansible_user }}/keygenerator/wallets.pem
+        timeout: 600
+
+    - name: Copy the generated wallets.pem file to benchmark directory
+      copy:
+        src: /home/{{ ansible_user }}/keygenerator/wallets.pem
+        dest: /home/{{ ansible_user }}/benchmark/wallets.pem
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+        remote_src: yes

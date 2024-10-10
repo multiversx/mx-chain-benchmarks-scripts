@@ -1,0 +1,30 @@
+# stop-spam-playbook.yml
+- name: Stop spam.py on validators (excluding validator-0)
+  hosts: validators
+  become: yes
+  tasks:
+    - name: Find and terminate spam.py process
+      shell: |
+        pkill -f spam.py
+      args:
+        executable: /bin/bash
+      ignore_errors: yes
+      when: validator_index > 0
+
+    - name: Verify if spam.py process is stopped
+      shell: |
+        pgrep -f spam.py
+      register: spam_status
+      failed_when: spam_status.rc == 0
+      ignore_errors: yes
+      when: validator_index > 0
+
+    - name: Print status
+      debug:
+        msg: "Spam process is stopped on validator-{{ validator_index }}."
+      when: spam_status.rc != 0 and validator_index > 0
+
+    - name: Warn if spam.py process is still running
+      debug:
+        msg: "Spam process is still running on validator-{{ validator_index }}. Manual intervention may be required."
+      when: spam_status.rc == 0 and validator_index > 0

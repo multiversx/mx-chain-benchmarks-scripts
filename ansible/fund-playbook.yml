@@ -1,0 +1,23 @@
+- name: Fund wallets on validators
+  hosts: validators
+  become: yes
+  tasks:
+    - name: Run fund.py script to fund wallets (3 times)
+      shell: |
+        cd /home/{{ ansible_user }}/benchmark
+        python3 fund.py --proxy http://localhost:8080 --sponsor sponsor.pem --receivers wallets.pem
+      args:
+        executable: /bin/bash
+      become_user: "{{ ansible_user }}"
+      loop: "{{ range(1, 4) | list }}"
+      when: validator_index > 0
+
+    - name: Verify that the funding script ran successfully
+      stat:
+        path: /home/{{ ansible_user }}/benchmark/fund.py
+      register: fund_script_check
+
+    - name: Fail if the fund.py script is not present
+      fail:
+        msg: "The fund.py script is missing in /home/{{ ansible_user }}/benchmark. Make sure it is present and correctly placed."
+      when: not fund_script_check.stat.exists
